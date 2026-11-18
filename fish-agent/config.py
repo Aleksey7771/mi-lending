@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # OpenAI Whisper (voice input)
     openai_api_key: str = ""
 
+    # Telegram channel for auto-posting (e.g. @fish_house_vdk or -1001234567890)
+    channel_id: str = ""
+
     # Company info for PDF
     company_name: str = "ИП Иванов"
     company_phone: str = ""

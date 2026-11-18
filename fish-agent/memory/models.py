@@ -117,6 +117,7 @@ class StyleExample(Base):
     tags: Mapped[list] = mapped_column(JSONB, default=list)
     is_original: Mapped[bool] = mapped_column(Boolean, default=False)
     feedback_score: Mapped[int] = mapped_column(SmallInteger, default=0)
+    channel_posted: Mapped[bool] = mapped_column(Boolean, default=False)
     generation_params: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

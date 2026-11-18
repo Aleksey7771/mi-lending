@@ -216,6 +216,54 @@ async def cb_help(callback: CallbackQuery) -> None:
     await cmd_help(callback.message)
 
 
+@router.callback_query(F.data == "cmd_channel")
+async def cb_channel(callback: CallbackQuery) -> None:
+    await callback.answer()
+    from bot.handlers.commands import cmd_channel
+    await cmd_channel(callback.message)
+
+
+@router.callback_query(F.data.startswith("channel_post:"))
+async def cb_channel_post(callback: CallbackQuery) -> None:
+    """Publish an approved post to the Telegram channel."""
+    example_id = int(callback.data.split(":")[1])
+    await callback.answer("Публикую...")
+
+    from memory.db import AsyncSessionFactory
+    from memory.models import StyleExample
+    from agents.channel_agent import post_to_channel, mark_posted, is_configured
+
+    if not is_configured():
+        await callback.message.answer(
+            "⚠️ CHANNEL_ID не настроен в .env\n"
+            "Добавь: <code>CHANNEL_ID=@твой_канал</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    async with AsyncSessionFactory() as session:
+        ex = await session.get(StyleExample, example_id)
+
+    if not ex:
+        await callback.message.answer("Пост не найден.")
+        return
+
+    await callback.message.answer("⏳ Публикую в канал...")
+    result = await post_to_channel(callback.bot, ex.content)
+
+    if result["ok"]:
+        await mark_posted(example_id)
+        await callback.message.answer(
+            f"✅ <b>Опубликовано в канале!</b>\n"
+            f"ID сообщения: {result['message_id']}",
+            parse_mode="HTML",
+        )
+        # Remove post button from original message
+        await callback.message.edit_reply_markup(reply_markup=None)
+    else:
+        await callback.message.answer(f"⚠️ Ошибка публикации: {result['error']}")
+
+
 @router.callback_query(F.data == "refresh_preis")
 async def cb_refresh_preis(callback: CallbackQuery) -> None:
     await callback.answer("Обновляю прайс...")
@@ -265,8 +313,12 @@ async def cb_style_feedback(callback: CallbackQuery) -> None:
     if action == "like":
         await update_style_score(example_id, 1)
         await callback.answer("👍 Запомнил — буду писать в таком стиле")
-        # Remove feedback buttons
-        await callback.message.edit_reply_markup(reply_markup=None)
+        # Replace buttons with "publish to channel" option
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="📢 Опубликовать в канал", callback_data=f"channel_post:{example_id}"),
+        ]])
+        await callback.message.edit_reply_markup(reply_markup=keyboard)
 
     elif action == "dislike":
         await update_style_score(example_id, -1)

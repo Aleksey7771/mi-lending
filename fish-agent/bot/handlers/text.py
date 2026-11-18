@@ -188,11 +188,16 @@ async def _handle_create_post(message: Message, params: dict, original_text: str
     post = await generate_post(topic=str(topic), price_info=str(price_info))
     # Save as neutral (score=0) first, update on feedback
     example_id = await save_style_example(post, score=0, topic=str(topic))
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="👍 Хорошо", callback_data=f"style:like:{example_id}"),
-        InlineKeyboardButton(text="👎 Переделать", callback_data=f"style:dislike:{example_id}"),
-        InlineKeyboardButton(text="✏️ Скопировать", callback_data=f"style:copy:{example_id}"),
-    ]])
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="👍 Хорошо", callback_data=f"style:like:{example_id}"),
+            InlineKeyboardButton(text="👎 Переделать", callback_data=f"style:dislike:{example_id}"),
+            InlineKeyboardButton(text="✏️ Скопировать", callback_data=f"style:copy:{example_id}"),
+        ],
+        [
+            InlineKeyboardButton(text="📢 В канал", callback_data=f"channel_post:{example_id}"),
+        ],
+    ])
     await message.answer(post, reply_markup=keyboard)
 
 
