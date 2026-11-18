@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 15mm 15mm 15mm 15mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #1a1a1a; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8mm; border-bottom: 2px solid #1a4a7a; padding-bottom: 4mm; }
+  .header-logo img { max-height: 50px; max-width: 120px; }
+  .header-logo-text { font-size: 15pt; font-weight: bold; color: #1a4a7a; }
+  .header-company h1 { font-size: 14pt; margin: 0; color: #1a4a7a; }
+  .header-date { text-align: right; font-size: 10pt; color: #555; }
+  .kp-title { font-size: 14pt; font-weight: bold; color: #1a4a7a; margin: 6mm 0 3mm; }
+  .client-info { background: #f5f9fd; border-left: 4px solid #1a4a7a; padding: 4px 10px; margin-bottom: 6mm; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #d9e8f5; font-size: 9.5pt; padding: 4px 6px; text-align: left; border: 1px solid #aac; }
+  td { padding: 4px 6px; font-size: 10pt; border: 1px solid #dde; }
+  tr:nth-child(even) td { background: #f5f9fd; }
+  .price-col { text-align: right; font-weight: bold; color: #1a4a7a; }
+  .discount-note { font-size: 9pt; color: #888; }
+  .footer { margin-top: 8mm; border-top: 1px solid #aaa; padding-top: 4mm; font-size: 9pt; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">
+    {% if logo_exists %}
+    <img src="{{ logo_path }}" alt="Логотип">
+    {% else %}
+    <div class="header-logo-text">🐟</div>
+    {% endif %}
+  </div>
+  <div class="header-company">
+    <h1>{{ company_name }}</h1>
+    <div>Коммерческое предложение</div>
+  </div>
+  <div class="header-date">{{ date }}</div>
+</div>
+
+<div class="kp-title">Коммерческое предложение</div>
+<div class="client-info">
+  Уважаемый(-ая) <strong>{{ client_name }}</strong>{% if client_city %}, {{ client_city }}{% endif %}.<br>
+  Направляем актуальные цены на рыбу и морепродукты.
+  {% if discount_pct > 0 %}
+  <div class="discount-note">Персональная скидка {{ discount_pct }}% учтена в ценах.</div>
+  {% endif %}
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Наименование</th>
+      <th style="width:60px">Ед.</th>
+      <th style="width:100px">Цена, руб.</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ item.name }}</td>
+      <td>{{ item.unit }}</td>
+      <td class="price-col">{{ item.price_str }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="footer">
+  <strong>Условия поставки:</strong> {{ conditions }}<br>
+  {% if min_order %}<strong>Минимальный заказ:</strong> {{ min_order }} кг<br>{% endif %}
+  <strong>Контакты:</strong>
+  {% if phone %}Тел.: {{ phone }}{% endif %}
+  {% if telegram %} | Telegram: {{ telegram }}{% endif %}
+  {% if email %} | Email: {{ email }}{% endif %}
+</div>
+
+</body>
+</html>

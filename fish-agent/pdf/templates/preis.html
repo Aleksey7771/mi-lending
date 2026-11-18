@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 15mm 15mm 15mm 15mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #1a1a1a; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8mm; border-bottom: 2px solid #1a4a7a; padding-bottom: 4mm; }
+  .header-logo img { max-height: 50px; max-width: 120px; }
+  .header-logo-text { font-size: 15pt; font-weight: bold; color: #1a4a7a; }
+  .header-company { text-align: center; }
+  .header-company h1 { font-size: 14pt; margin: 0; color: #1a4a7a; }
+  .header-date { text-align: right; font-size: 10pt; color: #555; }
+  .category-title { background: #1a4a7a; color: white; padding: 3px 8px; font-size: 10pt; font-weight: bold; margin-top: 6mm; }
+  table { width: 100%; border-collapse: collapse; margin-top: 2px; }
+  th { background: #d9e8f5; font-size: 9.5pt; padding: 4px 6px; text-align: left; border: 1px solid #aac; }
+  td { padding: 3px 6px; font-size: 10pt; border: 1px solid #dde; }
+  tr:nth-child(even) td { background: #f5f9fd; }
+  .price-col { text-align: right; font-weight: bold; color: #1a4a7a; }
+  .avail-yes { color: #2a7a2a; }
+  .footer { margin-top: 8mm; border-top: 1px solid #aaa; padding-top: 4mm; font-size: 9pt; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">
+    {% if logo_exists %}
+    <img src="{{ logo_path }}" alt="Логотип">
+    {% else %}
+    <div class="header-logo-text">🐟</div>
+    {% endif %}
+  </div>
+  <div class="header-company">
+    <h1>{{ company_name }}</h1>
+    <div>Оптовые поставки рыбы и морепродуктов</div>
+  </div>
+  <div class="header-date">
+    Прайс актуален на:<br>
+    <strong>{{ date }}</strong>
+  </div>
+</div>
+
+{% for category, items in products_by_category.items() %}
+<div class="category-title">{{ category | upper }}</div>
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px">Арт.</th>
+      <th>Наименование</th>
+      <th style="width:100px">Вид обработки</th>
+      <th style="width:90px">Цена руб/{{ unit }}</th>
+      <th style="width:60px">Наличие</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ item.article }}</td>
+      <td>{{ item.name_base }}</td>
+      <td>{{ item.processing }}</td>
+      <td class="price-col">{{ item.price_str }}</td>
+      <td class="avail-yes">✓</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endfor %}
+
+<div class="footer">
+  <strong>Условия поставки:</strong> {{ conditions }}<br>
+  <strong>Контакты:</strong>
+  {% if phone %}Тел.: {{ phone }}{% endif %}
+  {% if telegram %} | Telegram: {{ telegram }}{% endif %}
+  {% if email %} | Email: {{ email }}{% endif %}
+</div>
+
+</body>
+</html>

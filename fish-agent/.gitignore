@@ -1,0 +1,13 @@
+.env
+generated_pdfs/
+style_examples/
+tg_reader/session/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+backups/
+data/
