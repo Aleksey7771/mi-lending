@@ -4,8 +4,8 @@
 
 - Root `index.html` and `fish.html`: static landing page prototypes. `research.md` contains current market and product research; `idea.md` captures the business concept.
 - `specs/2026-11-11-fish-agent.md`: Fish Price Agent technical specification.
-- `fish-agent/`: Telegram bot and supporting services. `bot/` contains aiogram entry point, handlers, and access whitelist; `agents/` contains orchestration, pricing, content, PDF, outreach, and memory logic; `memory/` contains SQLAlchemy models, PostgreSQL/Redis connections, and Alembic migrations; `parsers/` and `scheduler/` collect prices and run scheduled jobs; `pdf/` contains PDF templates/generation; `scripts/` contains data import and 2GIS tools; `data/` contains supplier, product, and client CSVs.
-- `tg_parser/parser.py`: standalone Telethon parser for configured Telegram groups. It filters the latest messages for fish-related price mentions and exports `prices.csv` in the current working directory. It uses `TG_API_ID`, `TG_API_HASH`, and optional `TG_GROUPS`; Telethon creates a local `fish_session.session` authorization file.
+- `fish-agent/`: the primary MVP codebase for the Fish Price Agent. `bot/` contains the aiogram entry point, handlers, and access whitelist; `agents/` contains orchestration, pricing, content, PDF, outreach, and memory logic; `memory/` contains SQLAlchemy models, PostgreSQL/Redis connections, and Alembic migrations; `parsers/` and `scheduler/` collect prices and run scheduled jobs; `pdf/` contains PDF templates/generation; `scripts/` contains data import and 2GIS tools; `data/` is the input location for supplier, product, and client CSVs.
+- `tg_parser/parser.py`: a separate standalone Telethon utility, not the primary MVP parser/service. It reads configured Telegram groups, filters recent messages for fish-related price mentions, and exports `prices.csv` in the current working directory. It uses `TG_API_ID`, `TG_API_HASH`, and optional `TG_GROUPS`; Telethon creates a local `fish_session.session` authorization file. Its work is separate from `fish-agent/parsers/` and `fish-agent/tg_reader/`.
 - `fish-agent/tg_reader/`: separate Telethon reader for the bot's V1.5 integration.
 
 ## Stack
@@ -38,7 +38,8 @@ There is no configured linter or checked-in automated test suite at present. The
 ## Safety and data handling
 
 - Never read out, expose, overwrite, stage, or commit credentials from `.env` files, Telegram API tokens, `*.session` files, or session journals. `.env.example` may contain placeholders and is safe to track.
-- Do not delete, replace, or bulk-transform user data, CSVs, generated PDFs, databases, or Telegram session files without explicit confirmation. Preserve original files when preparing derived data.
+- Use `fish-agent/data/` for incoming business CSVs. Treat its contents as working data: do not delete, replace, bulk-transform, stage, or commit new or modified data files without explicit confirmation. Existing CSVs are already tracked historically; preserve them and do not untrack them without an explicit request.
+- Never inspect, copy, overwrite, delete, stage, or commit Telegram session files (`*.session`, session journals, or session directories). Preserve user data, generated PDFs, databases, and session files unless the user explicitly authorizes a specific operation.
 - Do not send messages, publish content, or contact customers/providers without explicit authorization.
 - Treat `fish-agent/data/` and generated outputs as user data. Inspect only what is needed and avoid printing personal contact details in chat or logs.
 
