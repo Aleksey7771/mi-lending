@@ -46,4 +46,5 @@ There is no configured linter or checked-in automated test suite at present. The
 
 - Before a substantial change, first give a short plan and list the files that will change. For small, self-contained edits, proceed directly.
 - After changes, run the relevant validation command above and report exactly what was checked and its result. Do not run database migrations or start services unless the task calls for it.
+- Keep `AGENTS.md` and `.clinerules` byte-identical; whenever one changes, update the other in the same edit.
 - Keep changes focused; update project documentation when architecture, commands, or key decisions change.
