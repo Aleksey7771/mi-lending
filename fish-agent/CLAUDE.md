@@ -12,6 +12,12 @@ fish-agent/
 │   └── middleware.py      # whitelist по user_id
 ├── agents/
 │   ├── orchestrator.py    # Claude Sonnet, intent detection
+│   ├── supervisor.py      # LangGraph task routing
+│   ├── worker_lifecycle.py # worker registry and global stop_all()
+│   ├── smm_workflow.py    # approval-gated publishing flow
+│   ├── postmately.py      # Postmately MCP client
+│   ├── workers/           # специализированные LangGraph-воркеры
+│   │   └── content_worker.py
 │   ├── price_agent.py     # сводки, сравнения цен
 │   ├── content_agent.py   # посты + КП-текст в стиле владельца
 │   ├── pdf_agent.py       # WeasyPrint → PDF
@@ -19,6 +25,7 @@ fish-agent/
 │   └── memory_agent.py    # R/W PostgreSQL-памяти
 ├── memory/
 │   ├── models.py          # SQLAlchemy ORM
+│   ├── agent_data.py      # table-scoped access for business agents
 │   ├── db.py              # пул соединений PG
 │   ├── redis_client.py
 │   └── migrations/        # Alembic
@@ -55,6 +62,8 @@ fish-agent/
 |-----------|-----------|------|
 | Бот | aiogram 3.x | MVP |
 | LLM | Claude Sonnet (claude-sonnet-4-5+) | MVP |
+| Оркестрация мультиагентности | LangGraph | Новая система агентов |
+| Публикация через MCP | Postmately MCP | Новая система агентов; только после approve в Telegram |
 | БД долгосрочная | PostgreSQL 16 | MVP |
 | Кэш / FSM | Redis 7.x | MVP |
 | PDF | WeasyPrint | MVP |
@@ -97,6 +106,18 @@ fish-agent/
   каждый час → run_parsers   → PostgreSQL
   каждые 5 мин → healthcheck → Telegram если упал
 ```
+
+Новые LangGraph-воркеры получают `AgentDataStore` только для своей таблицы:
+`leads`, `orders`, `content` или `consents`. Не передавать им общую SQLAlchemy-сессию.
+Supervisor направляет запрос с одной областью одному воркеру; запросы с несколькими
+областями обрабатываются ограниченным multi-agent циклом.
+
+SMM-воркер сохраняет черновик в `content` со статусом `pending_approval`.
+Только callback владельца может одобрить его; публикация в Telegram выполняется
+через Postmately MCP после проверки канала и текста. Неопределённый ответ MCP
+оставляет запись в `publishing`, чтобы не отправить тот же пост повторно автоматически.
+Email клиентам отправляется только через общий шлюз: нужна активная запись
+согласия (`email` + `marketing`) и подтверждение владельца в Telegram.
 
 ## 5. Пять ключевых решений
 
@@ -159,6 +180,7 @@ docker exec postgres pg_dump -U fish_agent fish_agent | gzip > backup_$(date +%Y
 
 # Тесты
 pytest parsers/ -v
+python -m unittest discover -s tests -v
 ```
 
 ## 9. Самообновление

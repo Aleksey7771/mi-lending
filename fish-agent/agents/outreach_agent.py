@@ -95,6 +95,8 @@ def _build_email_body(
 
 async def send_preis_to_all(
     pdf_path: str,
+    *,
+    approved_by_telegram_id: int,
     limit: int = 0,
     city_filter: str = "",
     type_filter: str = "",
@@ -105,9 +107,21 @@ async def send_preis_to_all(
     """
     if not _is_smtp_configured():
         return {"error": "SMTP не настроен. Укажи SMTP_USER и SMTP_PASSWORD в .env"}
+    from agents.messaging import (
+        OwnerApprovalRequiredError,
+        send_email_with_consent,
+    )
+    from config import settings
+
+    if approved_by_telegram_id != settings.owner_telegram_id:
+        raise OwnerApprovalRequiredError("Owner approval is required before sending")
 
     from sqlalchemy import select
     from memory.db import AsyncSessionFactory
+    from memory.consent_access import (
+        ConsentRequiredError,
+        email_marketing_consent_exists,
+    )
     from memory.models import Client
 
     async with AsyncSessionFactory() as session:
@@ -115,6 +129,7 @@ async def send_preis_to_all(
             Client.is_active == True,
             Client.email.isnot(None),
             Client.email != "",
+            email_marketing_consent_exists(Client.email),
         )
         if city_filter:
             q = q.where(Client.city.ilike(f"%{city_filter}%"))
@@ -126,7 +141,10 @@ async def send_preis_to_all(
         clients = (await session.execute(q)).scalars().all()
 
     if not clients:
-        return {"error": "Нет клиентов с email" + (f" в «{city_filter}»" if city_filter else "")}
+        return {
+            "error": "Нет клиентов с email и активным согласием на маркетинговую рассылку"
+            + (f" в «{city_filter}»" if city_filter else "")
+        }
 
     from datetime import datetime
     today = datetime.now().strftime("%d.%m.%Y")
@@ -135,7 +153,7 @@ async def send_preis_to_all(
 
     sent = 0
     failed = 0
-    failed_emails = []
+    skipped = 0
 
     for client in clients:
         body = _build_email_body(
@@ -144,29 +162,35 @@ async def send_preis_to_all(
             phone=settings.company_phone,
             telegram=settings.company_telegram or "@aleksey_fish",
         )
+        recipient_email = client.email or ""
         try:
-            await asyncio.to_thread(
+            await send_email_with_consent(
+                recipient_email,
+                approved_by_telegram_id,
                 _send_email_sync,
-                client.email,
+                recipient_email,
                 client.name or "",
                 subject,
                 body,
                 pdf_path,
                 pdf_filename,
             )
-            sent += 1
-            logger.info("email sent → %s <%s>", client.name, client.email)
-            await asyncio.sleep(0.3)  # не спамить сервер
-        except Exception as e:
+        except ConsentRequiredError:
+            skipped += 1
+            continue
+        except (smtplib.SMTPException, OSError) as e:
             failed += 1
-            failed_emails.append(client.email)
-            logger.warning("email failed %s: %s", client.email, e)
+            logger.warning("Email delivery failed (%s)", type(e).__name__)
+            continue
+        sent += 1
+        logger.info("Email sent to a consented recipient")
+        await asyncio.sleep(0.3)  # не спамить сервер
 
     return {
         "sent": sent,
         "failed": failed,
+        "skipped": skipped,
         "total": len(clients),
-        "failed_emails": failed_emails,
     }
 
 
@@ -177,6 +201,7 @@ async def get_email_preview(
     """Показать сколько получателей и пример письма перед отправкой."""
     from sqlalchemy import select, func
     from memory.db import AsyncSessionFactory
+    from memory.consent_access import email_marketing_consent_exists
     from memory.models import Client
 
     async with AsyncSessionFactory() as session:
@@ -184,6 +209,7 @@ async def get_email_preview(
             Client.is_active == True,
             Client.email.isnot(None),
             Client.email != "",
+            email_marketing_consent_exists(Client.email),
         )
         if city_filter:
             q = q.where(Client.city.ilike(f"%{city_filter}%"))
@@ -191,20 +217,7 @@ async def get_email_preview(
             q = q.where(Client.type.ilike(f"%{type_filter}%"))
         total = (await session.execute(q)).scalar() or 0
 
-        # Sample recipients for preview
-        q2 = select(Client).where(
-            Client.is_active == True,
-            Client.email.isnot(None),
-            Client.email != "",
-        )
-        if city_filter:
-            q2 = q2.where(Client.city.ilike(f"%{city_filter}%"))
-        if type_filter:
-            q2 = q2.where(Client.type.ilike(f"%{type_filter}%"))
-        sample = (await session.execute(q2.limit(5))).scalars().all()
-
     return {
         "total": total,
-        "sample": [{"name": c.name, "email": c.email, "city": c.city} for c in sample],
         "configured": _is_smtp_configured(),
     }

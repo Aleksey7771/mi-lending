@@ -24,6 +24,10 @@ BASE_STYLE = """Ты — маркетолог оптовой рыбной ком
 Формат ответа: только готовый пост, без вступлений и пояснений."""
 
 
+class PostGenerationError(RuntimeError):
+    pass
+
+
 async def _load_style_examples() -> str:
     """Load top approved posts from DB as few-shot examples."""
     try:
@@ -66,8 +70,8 @@ async def generate_post(topic: str, price_info: str = "") -> str:
         )
         return response.content[0].text.strip()
     except anthropic.APIError as e:
-        logger.error("PostAgent API error: %s", e)
-        return f"Не удалось сгенерировать пост: {e}"
+        logger.error("PostAgent API error")
+        raise PostGenerationError("Не удалось сгенерировать пост") from e
 
 
 async def save_style_example(content: str, score: int, topic: str = "") -> int:

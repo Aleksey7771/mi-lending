@@ -4,9 +4,6 @@ ChannelAgent: publish approved posts to a Telegram channel.
 import logging
 from datetime import datetime, timedelta
 
-from aiogram import Bot
-from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
-
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -14,36 +11,6 @@ logger = logging.getLogger(__name__)
 
 def is_configured() -> bool:
     return bool(settings.channel_id)
-
-
-async def post_to_channel(bot: Bot, text: str) -> dict:
-    """
-    Publish text to the configured Telegram channel.
-    Returns {"ok": True, "message_id": int} or {"ok": False, "error": str}.
-    """
-    if not is_configured():
-        return {"ok": False, "error": "CHANNEL_ID не настроен в .env"}
-
-    try:
-        msg = await bot.send_message(
-            chat_id=settings.channel_id,
-            text=text,
-            parse_mode="HTML",
-        )
-        logger.info("Posted to channel %s, message_id=%s", settings.channel_id, msg.message_id)
-
-        # Save publish record to DB
-        await _record_publish(msg.message_id, text)
-
-        return {"ok": True, "message_id": msg.message_id}
-
-    except TelegramForbiddenError:
-        return {"ok": False, "error": "Бот не является администратором канала. Добавь бота как админа."}
-    except TelegramBadRequest as e:
-        return {"ok": False, "error": f"Ошибка Telegram: {e}"}
-    except Exception as e:
-        logger.error("Channel post error: %s", e)
-        return {"ok": False, "error": str(e)}
 
 
 async def _record_publish(message_id: int, text: str) -> None:

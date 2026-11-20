@@ -1,6 +1,8 @@
 .vercel
 __pycache__/
 *.py[cod]
+.venv/
+sessions/
 
 # Local credentials and Telegram authorization sessions
 .env

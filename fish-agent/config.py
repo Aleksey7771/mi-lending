@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     # Telegram channel for auto-posting (e.g. @fish_house_vdk or -1001234567890)
     channel_id: str = ""
 
+    # Postmately MCP server
+    postmately_mcp_url: str = "https://api.postmately.com/mcp"
+    postmately_api_key: str = ""
+    postmately_telegram_channel_id: str = ""
+
     # Company info for PDF
     company_name: str = "ИП Иванов"
     company_phone: str = ""

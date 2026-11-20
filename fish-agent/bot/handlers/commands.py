@@ -192,13 +192,10 @@ async def cmd_broadcast(message: Message) -> None:
 
     if preview["total"] == 0:
         hint = f" в «{city_filter}»" if city_filter else ""
-        await message.answer(f"Нет клиентов с email{hint}.")
+        await message.answer(
+            f"Нет клиентов с email и активным согласием на рассылку{hint}."
+        )
         return
-
-    sample_lines = []
-    for c in preview["sample"]:
-        city = f" ({c['city']})" if c.get("city") else ""
-        sample_lines.append(f"  • {c['name']}{city} — {c['email']}")
 
     filter_info = ""
     if city_filter:
@@ -218,8 +215,7 @@ async def cmd_broadcast(message: Message) -> None:
 
     await message.answer(
         f"📧 <b>Рассылка прайса</b>{filter_info}\n\n"
-        f"Получателей: <b>{preview['total']}</b>\n\n"
-        f"Первые {len(sample_lines)}:\n" + "\n".join(sample_lines) + "\n\n"
+        f"Получателей с активным согласием: <b>{preview['total']}</b>\n\n"
         f"Тема: «Прайс на рыбу и морепродукты — сегодня»\n"
         f"Вложение: PDF прайс (будет сгенерирован автоматически)",
         reply_markup=keyboard,
@@ -470,81 +466,18 @@ async def cmd_suppliers(message: Message) -> None:
 @router.message(Command("channel"))
 @router.message(Command("канал"))
 async def cmd_channel(message: Message) -> None:
-    """Управление постами для Telegram-канала."""
-    from agents.channel_agent import is_configured, get_pending_posts, get_recent_posts
-    from config import settings
-
-    if not is_configured():
-        await message.answer(
-            "📢 <b>Канал не настроен</b>\n\n"
-            "Добавь в <code>.env</code>:\n"
-            "<code>CHANNEL_ID=@твой_канал</code>\n\n"
-            "Как получить ID:\n"
-            "1. Создай канал, добавь бота как администратора\n"
-            "2. Если канал публичный — укажи @username\n"
-            "3. Если приватный — перешли любое сообщение из канала "
-            "боту @userinfobot, он покажет ID (начинается с -100...)"
-        )
-        return
-
-    pending = await get_pending_posts(limit=5)
-    recent = await get_recent_posts(limit=3)
-
-    lines = [f"📢 <b>Telegram-канал:</b> {settings.channel_id}\n"]
-
-    if pending:
-        lines.append(f"<b>Одобренные посты ({len(pending)}) — готовы к публикации:</b>")
-        for i, p in enumerate(pending, 1):
-            preview = p["content"][:120].replace("\n", " ")
-            lines.append(
-                f"\n{i}. {preview}…\n"
-                f"   /publish_{p['id']}"
-            )
-    else:
-        lines.append("Нет одобренных постов (нажми 👍 на пост чтобы одобрить).")
-
-    if recent:
-        lines.append(f"\n<b>Последние публикации:</b>")
-        for p in recent:
-            dt = p["published_at"][:16].replace("T", " ") if p.get("published_at") else "—"
-            preview = p["text"][:80].replace("\n", " ")
-            lines.append(f"  • {dt} — {preview}…")
-
-    # Inline keyboard for each pending post
-    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-    rows = []
-    for p in pending:
-        rows.append([InlineKeyboardButton(
-            text=f"📢 Опубликовать пост #{p['id']}",
-            callback_data=f"channel_post:{p['id']}",
-        )])
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=keyboard)
+    """Explain the approval-first Postmately publishing flow."""
+    await message.answer(
+        "Публикации в Telegram идут через Postmately.\n"
+        "Напишите «напиши пост про ...» — я пришлю черновик. "
+        "Пост выйдет только после нажатия «Одобрить и опубликовать».",
+        parse_mode=None,
+    )
 
 
 @router.message(Command("publish_"))
 async def cmd_publish_shortcut(message: Message) -> None:
-    """Handle /publish_<id> shortcut from /channel listing."""
-    text = message.text or ""
-    try:
-        example_id = int(text.split("_", 1)[1].strip())
-    except (IndexError, ValueError):
-        await message.answer("Неверный формат. Используй кнопки из /канал")
-        return
-    # Delegate to callback handler logic
-    from memory.db import AsyncSessionFactory
-    from memory.models import StyleExample
-    from agents.channel_agent import post_to_channel, mark_posted
-    async with AsyncSessionFactory() as session:
-        ex = await session.get(StyleExample, example_id)
-    if not ex:
-        await message.answer("Пост не найден.")
-        return
-    await message.answer("📢 Публикую в канал...")
-    result = await post_to_channel(message.bot, ex.content)
-    if result["ok"]:
-        await mark_posted(example_id)
-        await message.answer(f"✅ Опубликовано! ID сообщения: {result['message_id']}")
-    else:
-        await message.answer(f"⚠️ Ошибка: {result['error']}")
+    await message.answer(
+        "Эта команда устарела. Создайте новый пост — бот пришлёт его на одобрение.",
+        parse_mode=None,
+    )

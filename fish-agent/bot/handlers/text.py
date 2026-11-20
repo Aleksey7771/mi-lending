@@ -178,27 +178,54 @@ async def _handle_add_client(message: Message, params: dict) -> None:
 
 
 async def _handle_create_post(message: Message, params: dict, original_text: str) -> None:
-    topic = params.get("topic") or params.get("product") or original_text
-    price_info = params.get("price", "")
-    if price_info:
-        price_info = f"{price_info} ₽/кг"
     await message.answer("✍️ Пишу пост...")
-    from agents.post_agent import generate_post, save_style_example
+    from agents.post_agent import PostGenerationError
+    from agents.supervisor import supervisor_graph
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-    post = await generate_post(topic=str(topic), price_info=str(price_info))
-    # Save as neutral (score=0) first, update on feedback
-    example_id = await save_style_example(post, score=0, topic=str(topic))
+
+    try:
+        result = await supervisor_graph.ainvoke(
+            {
+                "task": original_text,
+                "intent": "create_post",
+                "params": params,
+            }
+        )
+    except PostGenerationError as error:
+        await message.answer(str(error), parse_mode=None)
+        return
+
+    draft = next(
+        (
+            item
+            for item in result.get("worker_results", [])
+            if item.get("worker") == "content"
+            and item.get("status") == "pending_approval"
+        ),
+        None,
+    )
+    if draft is None:
+        logger.error("Supervisor did not produce an SMM content draft")
+        await message.answer("Не удалось подготовить черновик поста.")
+        return
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="👍 Хорошо", callback_data=f"style:like:{example_id}"),
-            InlineKeyboardButton(text="👎 Переделать", callback_data=f"style:dislike:{example_id}"),
-            InlineKeyboardButton(text="✏️ Скопировать", callback_data=f"style:copy:{example_id}"),
-        ],
-        [
-            InlineKeyboardButton(text="📢 В канал", callback_data=f"channel_post:{example_id}"),
+            InlineKeyboardButton(
+                text="✅ Одобрить и опубликовать",
+                callback_data=f"smm:approve:{draft['content_id']}",
+            ),
+            InlineKeyboardButton(
+                text="❌ Отклонить",
+                callback_data=f"smm:reject:{draft['content_id']}",
+            ),
         ],
     ])
-    await message.answer(post, reply_markup=keyboard)
+    await message.answer(
+        f"Черновик поста для Telegram — проверьте перед публикацией:\n\n{draft['text']}",
+        reply_markup=keyboard,
+        parse_mode=None,
+    )
 
 
 async def _handle_price_trend(message: Message, params: dict) -> None:

@@ -1,9 +1,92 @@
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, FSInputFile
 
+from config import settings
 from memory.db import AsyncSessionFactory
 
 router = Router()
+
+
+def _smm_retry_keyboard(content_id: str):
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="↻ Повторить после проверки",
+            callback_data=f"smm:publish:{content_id}",
+        )
+    ]])
+
+
+@router.callback_query(F.data.startswith("smm:"))
+async def cb_smm_content(callback: CallbackQuery) -> None:
+    if callback.from_user.id != settings.owner_telegram_id:
+        await callback.answer("Недостаточно прав.", show_alert=True)
+        return
+    if callback.message is None:
+        await callback.answer("Сообщение с черновиком недоступно.", show_alert=True)
+        return
+
+    parts = (callback.data or "").split(":")
+    if len(parts) != 3 or parts[1] not in {"approve", "reject", "publish"}:
+        await callback.answer("Некорректная команда.", show_alert=True)
+        return
+
+    from uuid import UUID
+
+    from agents.postmately import PostmatelyError
+    from agents.smm_workflow import (
+        SmmWorkflowError,
+        approve_and_publish_content,
+        publish_approved_content,
+        reject_content,
+    )
+
+    try:
+        content_id = UUID(parts[2])
+    except ValueError:
+        await callback.answer("Некорректный ID черновика.", show_alert=True)
+        return
+
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    try:
+        if parts[1] == "reject":
+            rejected = await reject_content(content_id)
+            text = "Черновик отклонён." if rejected else "Черновик уже обработан."
+            await callback.message.answer(text, parse_mode=None)
+            return
+
+        if parts[1] == "approve":
+            outcome = await approve_and_publish_content(
+                content_id,
+                callback.from_user.id,
+            )
+        else:
+            outcome = await publish_approved_content(content_id)
+
+        if outcome.published:
+            response = f"Опубликовано в Telegram через Postmately. ID поста: {outcome.post_id}"
+        else:
+            response = (
+                f"Postmately принял пост (статус: {outcome.status}, ID: {outcome.post_id}), "
+                "но публикация ещё не подтверждена. Повторно автоматически не отправляю."
+            )
+        await callback.message.answer(response, parse_mode=None)
+    except PostmatelyError as error:
+        response = str(error)
+        markup = None
+        if error.outcome_uncertain:
+            response += (
+                "\nРезультат отправки не подтверждён. Проверьте Postmately; "
+                "повторно запускать публикацию нельзя."
+            )
+        else:
+            response += "\nПосле устранения причины публикацию можно повторить вручную."
+            markup = _smm_retry_keyboard(str(content_id))
+        await callback.message.answer(response, reply_markup=markup, parse_mode=None)
+    except SmmWorkflowError as error:
+        await callback.message.answer(str(error), parse_mode=None)
 
 
 @router.callback_query(F.data == "cmd_preis")
@@ -169,6 +252,7 @@ async def cb_broadcast_send(callback: CallbackQuery) -> None:
 
         result = await send_preis_to_all(
             pdf_path=pdf_path,
+            approved_by_telegram_id=callback.from_user.id,
             city_filter=city_filter,
             type_filter=type_filter,
         )
@@ -183,7 +267,8 @@ async def cb_broadcast_send(callback: CallbackQuery) -> None:
         ]
         if result["failed"]:
             lines.append(f"Ошибок: {result['failed']}")
-            lines.append("Не доставлено: " + ", ".join(result["failed_emails"][:5]))
+        if result.get("skipped"):
+            lines.append(f"Пропущено: {result['skipped']} (согласие отозвано перед отправкой)")
         await callback.message.answer("\n".join(lines), parse_mode="HTML")
     except Exception as e:
         await callback.message.answer(f"⚠️ Ошибка рассылки: {e}")
@@ -225,43 +310,12 @@ async def cb_channel(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith("channel_post:"))
 async def cb_channel_post(callback: CallbackQuery) -> None:
-    """Publish an approved post to the Telegram channel."""
-    example_id = int(callback.data.split(":")[1])
-    await callback.answer("Публикую...")
-
-    from memory.db import AsyncSessionFactory
-    from memory.models import StyleExample
-    from agents.channel_agent import post_to_channel, mark_posted, is_configured
-
-    if not is_configured():
-        await callback.message.answer(
-            "⚠️ CHANNEL_ID не настроен в .env\n"
-            "Добавь: <code>CHANNEL_ID=@твой_канал</code>",
-            parse_mode="HTML",
-        )
-        return
-
-    async with AsyncSessionFactory() as session:
-        ex = await session.get(StyleExample, example_id)
-
-    if not ex:
-        await callback.message.answer("Пост не найден.")
-        return
-
-    await callback.message.answer("⏳ Публикую в канал...")
-    result = await post_to_channel(callback.bot, ex.content)
-
-    if result["ok"]:
-        await mark_posted(example_id)
-        await callback.message.answer(
-            f"✅ <b>Опубликовано в канале!</b>\n"
-            f"ID сообщения: {result['message_id']}",
-            parse_mode="HTML",
-        )
-        # Remove post button from original message
+    await callback.answer(
+        "Старый способ публикации отключён. Создайте новый черновик для проверки.",
+        show_alert=True,
+    )
+    if callback.message is not None:
         await callback.message.edit_reply_markup(reply_markup=None)
-    else:
-        await callback.message.answer(f"⚠️ Ошибка публикации: {result['error']}")
 
 
 @router.callback_query(F.data == "refresh_preis")
@@ -313,12 +367,7 @@ async def cb_style_feedback(callback: CallbackQuery) -> None:
     if action == "like":
         await update_style_score(example_id, 1)
         await callback.answer("👍 Запомнил — буду писать в таком стиле")
-        # Replace buttons with "publish to channel" option
-        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="📢 Опубликовать в канал", callback_data=f"channel_post:{example_id}"),
-        ]])
-        await callback.message.edit_reply_markup(reply_markup=keyboard)
+        await callback.message.edit_reply_markup(reply_markup=None)
 
     elif action == "dislike":
         await update_style_score(example_id, -1)

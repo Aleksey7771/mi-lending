@@ -5,6 +5,11 @@ aiohttp>=3.9.0
 # Claude API
 anthropic>=0.40.0
 
+# Multi-agent orchestration and MCP
+langgraph>=0.2.0
+mcp>=1.0.0
+httpx2>=2.10.0
+
 # Database
 sqlalchemy>=2.0.36
 asyncpg>=0.30.0

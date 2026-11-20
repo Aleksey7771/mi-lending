@@ -1,0 +1,28 @@
+# Telegram bot + MTProto
+aiogram>=3.13.1
+telethon>=1.36.0
+aiohttp>=3.9.0
+
+# Claude API
+anthropic>=0.40.0
+
+# Multi-agent orchestration
+langgraph>=0.2.0
+
+# Database
+sqlalchemy>=2.0.36
+asyncpg>=0.30.0
+alembic>=1.14.0
+
+# Scheduling
+apscheduler>=3.10.4
+
+# Config
+pydantic>=2.10.2
+pydantic-settings>=2.6.1
+python-dotenv>=1.0.1
+
+# Utils
+httpx>=0.27.2
+rapidfuzz>=3.10.1
+openpyxl>=3.1.2
