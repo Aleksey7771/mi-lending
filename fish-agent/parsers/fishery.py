@@ -225,21 +225,23 @@ async def _llm_extract(text: str, source_url: str) -> list[PriceRecord]:
     if len(text) > 8000:
         text = text[:8000]
     try:
-        import anthropic
+        from openai import AsyncOpenAI
         from config import settings
-        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-        response = await client.messages.create(
-            model=settings.claude_model,
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        response = await client.chat.completions.create(
+            model=settings.openai_model,
             max_tokens=1024,
-            system=(
-                "Извлеки из текста строки с ценами на рыбу и морепродукты. "
-                "Верни ТОЛЬКО JSON-список: "
-                '[{"name": "треска б/г", "price": 182, "supplier": "Иванов"}, ...]'
-                "Если ничего нет — верни пустой список []."
-            ),
-            messages=[{"role": "user", "content": text}],
+            messages=[
+                {"role": "system", "content": (
+                    "Извлеки из текста строки с ценами на рыбу и морепродукты. "
+                    "Верни ТОЛЬКО JSON-список: "
+                    '[{"name": "треска б/г", "price": 182, "supplier": "Иванов"}, ...]'
+                    "Если ничего нет — верни пустой список []."
+                )},
+                {"role": "user", "content": text},
+            ],
         )
-        raw = response.content[0].text.strip()
+        raw = response.choices[0].message.content.strip()
         import json
         # Find JSON array in response
         match = re.search(r"\[.*\]", raw, re.DOTALL)

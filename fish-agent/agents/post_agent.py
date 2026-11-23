@@ -1,9 +1,9 @@
 """
-PostAgent: generates social media posts about fish/prices via Claude.
+PostAgent: generates social media posts about fish/prices via OpenAI GPT-4o.
 """
 import logging
 
-import anthropic
+from openai import AsyncOpenAI
 
 from config import settings
 
@@ -52,7 +52,7 @@ async def _load_style_examples() -> str:
 
 async def generate_post(topic: str, price_info: str = "") -> str:
     """Generate a social media post about a fish product or topic."""
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     style_block = await _load_style_examples()
     system = BASE_STYLE + style_block
@@ -62,15 +62,17 @@ async def generate_post(topic: str, price_info: str = "") -> str:
         user_msg += f"\nЦеновая информация: {price_info}"
 
     try:
-        response = await client.messages.create(
-            model=settings.claude_model,
+        response = await client.chat.completions.create(
+            model=settings.openai_model,
             max_tokens=600,
-            system=system,
-            messages=[{"role": "user", "content": user_msg}],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_msg},
+            ],
         )
-        return response.content[0].text.strip()
-    except anthropic.APIError as e:
-        logger.error("PostAgent API error")
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error("PostAgent API error: %s", e)
         raise PostGenerationError("Не удалось сгенерировать пост") from e
 
 
@@ -105,8 +107,8 @@ async def update_style_score(example_id: int, score: int) -> None:
 
 
 async def answer_question(question: str, context: str = "") -> str:
-    """Answer a general business question using Claude."""
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    """Answer a general business question using GPT-4o."""
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     system = """Ты — бизнес-ассистент владельца оптовой торговли рыбой «Торговый рыбный дом».
 Работаешь с рыбой и морепродуктами с Дальнего Востока (Сахалин, Камчатка, Приморье).
@@ -117,13 +119,15 @@ async def answer_question(question: str, context: str = "") -> str:
         user_msg = f"Контекст: {context}\n\nВопрос: {question}"
 
     try:
-        response = await client.messages.create(
-            model=settings.claude_model,
+        response = await client.chat.completions.create(
+            model=settings.openai_model,
             max_tokens=800,
-            system=system,
-            messages=[{"role": "user", "content": user_msg}],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_msg},
+            ],
         )
-        return response.content[0].text.strip()
-    except anthropic.APIError as e:
+        return response.choices[0].message.content.strip()
+    except Exception as e:
         logger.error("AnswerAgent API error: %s", e)
         return f"Ошибка: {e}"

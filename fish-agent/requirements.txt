@@ -2,8 +2,8 @@
 aiogram>=3.13.1
 aiohttp>=3.9.0
 
-# Claude API
-anthropic>=0.40.0
+# OpenAI API (GPT-4o for orchestrator and agents)
+openai>=1.54.0
 
 # Multi-agent orchestration and MCP
 langgraph>=0.2.0
@@ -44,8 +44,7 @@ pydantic-settings>=2.6.1
 openpyxl>=3.1.2
 pdfplumber>=0.11.0
 
-# Voice input (Whisper STT)
-openai>=1.54.0
+# Voice input (Whisper STT) — same openai package above
 
 # Telegram reader (Telethon MTProto client)
 telethon>=1.36.0

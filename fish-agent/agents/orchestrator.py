@@ -1,11 +1,11 @@
 """
-Orchestrator: determines user intent via Claude Sonnet and routes to the right agent.
+Orchestrator: determines user intent via OpenAI GPT-4o and routes to the right agent.
 """
 import json
 import logging
 from dataclasses import dataclass, field
 
-import anthropic
+from openai import AsyncOpenAI
 
 from config import settings
 
@@ -51,26 +51,29 @@ class IntentResult:
     raw_response: str = ""
 
 
-_client: anthropic.AsyncAnthropic | None = None
+_client: AsyncOpenAI | None = None
 
 
-def _get_client() -> anthropic.AsyncAnthropic:
+def _get_client() -> AsyncOpenAI:
     global _client
     if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        _client = AsyncOpenAI(api_key=settings.openai_api_key)
     return _client
 
 
 async def detect_intent(user_message: str) -> IntentResult:
     client = _get_client()
     try:
-        response = await client.messages.create(
-            model=settings.claude_model,
+        response = await client.chat.completions.create(
+            model=settings.openai_model,
             max_tokens=512,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            response_format={"type": "json_object"},
         )
-        raw = response.content[0].text.strip()
+        raw = response.choices[0].message.content.strip()
         data = json.loads(raw)
         return IntentResult(
             intent=data.get("intent", "general_question"),
@@ -78,6 +81,6 @@ async def detect_intent(user_message: str) -> IntentResult:
             clarification=data.get("clarification"),
             raw_response=raw,
         )
-    except (json.JSONDecodeError, KeyError, anthropic.APIError) as e:
+    except (json.JSONDecodeError, KeyError, Exception) as e:
         logger.warning("Orchestrator error: %s", e)
         return IntentResult(intent="general_question", raw_response=str(e))

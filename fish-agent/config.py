@@ -6,9 +6,9 @@ class Settings(BaseSettings):
     bot_token: str
     owner_telegram_id: int
 
-    # Claude
-    anthropic_api_key: str
-    claude_model: str = "claude-sonnet-4-5"
+    # OpenAI
+    openai_api_key: str
+    openai_model: str = "gpt-4o"
 
     # PostgreSQL
     postgres_host: str = "postgres"
