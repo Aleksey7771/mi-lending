@@ -2,12 +2,10 @@
 description: Extract text from a PDF or image file (local OCR, zero tokens)
 ---
 
-Extract text from the file at: $ARGUMENTS
-
-Run this bash command and return its output as plain text:
+Run this bash command to extract text from: $ARGUMENTS
 
 ```bash
 python tools/ocr/ocr.py "$ARGUMENTS"
 ```
 
-Then paste the extracted text here so we can work with it. If the command fails, show me the error message.
+The extracted text is now in context. Do NOT repeat the full text back. Briefly confirm how many characters were extracted, then wait for my question about the content.
