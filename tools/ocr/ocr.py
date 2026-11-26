@@ -31,3 +31,35 @@ def extract_image(path: str) -> str:
     if not text:
         print("[WARNING] No text detected in image.", file=sys.stderr)
     return text
+
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"}
+
+
+def route_file(path: str) -> str:
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".pdf":
+        return extract_pdf(path)
+    elif ext in IMAGE_EXTENSIONS:
+        return extract_image(path)
+    else:
+        raise ValueError(f"Unsupported format: {ext!r}. Supported: .pdf, {', '.join(sorted(IMAGE_EXTENSIONS))}")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python ocr.py <file.pdf|file.png|...>", file=sys.stderr)
+        sys.exit(1)
+    path = sys.argv[1]
+    text = route_file(path)
+    print(text)
+    try:
+        import pyperclip
+        pyperclip.copy(text)
+        print("\n✓ Copied to clipboard", file=sys.stderr)
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    main()
