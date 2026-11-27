@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from config import BOT_TOKEN
-from handlers import common
+from handlers import catalog, common
 from middleware.owner import OwnerOnlyMiddleware
 
 
@@ -24,6 +24,7 @@ async def main() -> None:
     dp.message.middleware(OwnerOnlyMiddleware())
 
     dp.include_router(common.router)
+    dp.include_router(catalog.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
