@@ -14,7 +14,9 @@ from aiogram.types import (
 
 from ai.generator import generate_post
 from ai.router import detect_intent
-from db.catalog import get_all_products, get_product
+from db.catalog import get_all_products, get_product, find_product_fuzzy
+from db.catalog import get_public_catalog
+from handlers.price import format_price_list, PriceStates, _confirm_keyboard
 from db.database import get_db
 from db.style import get_style_profile
 from platforms import max_content, telegram_channel
@@ -59,9 +61,7 @@ def _preview_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-@router.message(F.text & ~F.text.startswith("/"))
-async def handle_text_message(message: Message, state: FSMContext) -> None:
-    text = message.text or ""
+async def process_text_command(message: Message, state: FSMContext, text: str) -> None:
     intent = await detect_intent(text)
 
     if intent == "POST":
@@ -71,7 +71,7 @@ async def handle_text_message(message: Message, state: FSMContext) -> None:
             return
 
         async with get_db() as db:
-            product = await get_product(db, name)
+            product = await find_product_fuzzy(db, name)
 
         if product is None:
             await message.answer(
@@ -127,10 +127,28 @@ async def handle_text_message(message: Message, state: FSMContext) -> None:
             "Редактирование через кнопки в каталоге."
         )
 
+    elif intent == "PRICE":
+        async with get_db() as db:
+            products = await get_public_catalog(db)
+        text = format_price_list(products)
+        await state.update_data(price_products=products)
+        await state.set_state(PriceStates.waiting_confirmation)
+        await message.answer(text + "\n\nЦены актуальны? Публикуем?",
+                             reply_markup=_confirm_keyboard())
+
     else:
         await message.answer(
-            "Команда не распознана. Попробуйте: «напиши пост про горбушу»"
+            "Не понял команду. Что хотите сделать?\n\n"
+            "📝 <b>Пост</b> — «напиши пост про горбушу»\n"
+            "💰 <b>Прайс</b> — «прайс» или «покажи цены»\n"
+            "📄 <b>КП</b> — «сделай КП на краба»\n"
+            "📦 <b>Каталог</b> — «что у нас есть»"
         )
+
+
+@router.message(F.text & ~F.text.startswith("/"))
+async def handle_text_message(message: Message, state: FSMContext) -> None:
+    await process_text_command(message, state, message.text or "")
 
 
 @router.callback_query(F.data == "publish_post")

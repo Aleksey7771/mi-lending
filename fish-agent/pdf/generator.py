@@ -21,9 +21,10 @@ _jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 
 
 def _logo_path() -> tuple[bool, str]:
-    path = os.path.join(ASSETS_DIR, "logo.png")
-    if os.path.exists(path):
-        return True, f"file://{os.path.abspath(path)}"
+    for name in ("logo.png", "logo.jpg", "logo.jpeg"):
+        path = os.path.join(ASSETS_DIR, name)
+        if os.path.exists(path):
+            return True, f"file://{os.path.abspath(path)}"
     return False, ""
 
 

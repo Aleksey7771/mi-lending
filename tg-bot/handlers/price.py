@@ -1,4 +1,4 @@
-import re
+import json
 import logging
 
 from aiogram import Router, F
@@ -11,12 +11,20 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
+from openai import AsyncOpenAI
 
+import config
+from ai.transcriber import transcribe_voice
 from db.catalog import find_product_fuzzy, get_public_catalog, update_product
 from db.database import get_db
 from platforms import max_content, telegram_channel
 
 logger = logging.getLogger(__name__)
+
+_ai_client = AsyncOpenAI(
+    api_key=config.OPENROUTER_API_KEY,
+    base_url="https://openrouter.ai/api/v1",
+)
 
 router = Router()
 
@@ -48,9 +56,49 @@ def format_price_list(products: list[dict]) -> str:
             wholesale_str = f"{wholesale:,.0f} ₽/{unit}" if wholesale else "—"
             lines.append(
                 f"  {p['name']}{origin_str} — "
-                f"розница: {retail_str} | опт: {wholesale_str}"
+                f"опт: {wholesale_str} | розница: {retail_str}"
             )
     return "\n".join(lines)
+
+
+async def _ai_parse_price_update(text: str) -> dict | None:
+    """Извлекает из текста: товар, тип цены, значение. Возвращает dict или None."""
+    prompt = (
+        "Из текста извлеки исправление цены для прайс-листа оптовой торговли морепродуктами.\n"
+        f'Текст: "{text}"\n\n'
+        "Ответь ТОЛЬКО JSON без пояснений:\n"
+        '{"product": "название товара", "type": "опт"|"розница", "value": число}\n\n'
+        "Правила:\n"
+        "- product: только название товара (например: горбуша, икра горбуши, кета)\n"
+        "- type: «опт» если оптовая цена, «розница» если розничная; "
+        "если не указано — «опт»\n"
+        "- value: только число (без рублей)\n"
+        "Если не удаётся извлечь — ответь: null"
+    )
+    try:
+        response = await _ai_client.chat.completions.create(
+            model=config.ROUTER_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=80,
+        )
+        raw = response.choices[0].message.content.strip()
+        if raw.lower() == "null":
+            return None
+        # strip markdown code fences if present
+        raw = raw.strip("`").strip()
+        if raw.startswith("json"):
+            raw = raw[4:].strip()
+        data = json.loads(raw)
+        field = "price_retail" if data.get("type") == "розница" else "price_wholesale"
+        return {
+            "product": str(data.get("product", "")).strip(),
+            "field": field,
+            "value": float(data["value"]),
+        }
+    except Exception as e:
+        logger.warning("AI price parse failed: %s", e)
+        return None
 
 
 def _confirm_keyboard() -> InlineKeyboardMarkup:
@@ -102,24 +150,39 @@ async def handle_price_confirm(callback: CallbackQuery, state: FSMContext) -> No
 async def handle_price_edit(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(PriceStates.waiting_correction)
     await callback.message.answer(
-        "Напишите исправление, например: «горбуша на 480»"
+        "Напишите или скажите голосом исправление, например: «горбуша на 480»"
     )
     await callback.answer()
 
 
 @router.message(PriceStates.waiting_correction)
 async def handle_price_correction(message: Message, state: FSMContext) -> None:
-    text = (message.text or "").strip()
-    # Parse "горбуша на 480" or "икру на 2900"
-    m = re.search(r"(.+?)\s+на\s+(\d+(?:[.,]\d+)?)", text.lower())
-    if not m:
+    if message.voice:
+        await message.answer("🎤 Распознаю...")
+        try:
+            text = await transcribe_voice(message.bot, message.voice)
+        except Exception:
+            await message.answer("⚠️ Не удалось распознать голос. Попробуйте ещё раз.")
+            return
+        if not text:
+            await message.answer("Ничего не распознано. Скажите чётче.")
+            return
+        await message.answer(f"🗣 «{text}»")
+    else:
+        text = (message.text or "").strip()
+
+    parsed = await _ai_parse_price_update(text)
+    if parsed is None:
         await message.answer(
-            "Не понял. Напишите в формате «горбуша на 480»."
+            "Не понял. Скажите или напишите, например:\n"
+            "«горбуша опт 240» или «икра горбуши розница 3500»"
         )
         return
 
-    name_raw = m.group(1).strip()
-    price_val = float(m.group(2).replace(",", "."))
+    name_raw = parsed["product"]
+    price_field = parsed["field"]
+    price_val = parsed["value"]
+    price_label = "розница" if price_field == "price_retail" else "опт"
 
     async with get_db() as db:
         product = await find_product_fuzzy(db, name_raw)
@@ -129,13 +192,14 @@ async def handle_price_correction(message: Message, state: FSMContext) -> None:
                 "Проверьте название командой /catalog."
             )
             return
-        await update_product(db, product["name"], price_wholesale=price_val)
+        await update_product(db, product["name"], **{price_field: price_val})
         products = await get_public_catalog(db)
 
     await state.update_data(price_products=products)
     await state.set_state(PriceStates.waiting_confirmation)
     text_updated = format_price_list(products)
     await message.answer(
-        text_updated + "\n\nЦены актуальны? Публикуем?",
+        f"✅ {product['name']}: {price_label} → {price_val:,.0f} ₽\n\n"
+        + text_updated + "\n\nЦены актуальны? Публикуем?",
         reply_markup=_confirm_keyboard(),
     )

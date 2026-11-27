@@ -46,8 +46,8 @@ async def handle_voice(message: Message) -> None:
 
 
 @router.message()
-async def handle_free_text(message: Message) -> None:
-    text = (message.text or message.caption or "").strip()
+async def handle_free_text(message: Message, text_override: str | None = None) -> None:
+    text = text_override or (message.text or message.caption or "").strip()
     if not text:
         return
 

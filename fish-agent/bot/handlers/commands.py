@@ -126,9 +126,8 @@ async def cmd_update(message: Message) -> None:
         await message.answer("Формат: /update треска б/г 182 Иванов")
         return
     # Reuse free-text flow
-    message.text = args[1]
     from bot.handlers.text import handle_free_text
-    await handle_free_text(message)
+    await handle_free_text(message, text_override=args[1])
 
 
 @router.message(Command("прайс"))

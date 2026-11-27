@@ -21,6 +21,10 @@ MAX_CONTENT_BOT_TOKEN: str = os.getenv("MAX_CONTENT_BOT_TOKEN", "")
 MAX_CONTENT_CHANNEL_ID: str = os.getenv("MAX_CONTENT_CHANNEL_ID", "")
 MAX_DIALOG_BOT_TOKEN: str = os.getenv("MAX_DIALOG_BOT_TOKEN", "")
 
+# Voice transcription (Groq Whisper — free)
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+WHISPER_MODEL: str = "whisper-large-v3-turbo"
+
 # Business settings
 MANAGER_CONTACT: str = os.getenv("MANAGER_CONTACT", "@manager")
 RESPONSE_TIME_HOURS: int = int(os.getenv("RESPONSE_TIME_HOURS", "2"))
