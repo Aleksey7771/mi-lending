@@ -43,6 +43,20 @@ CREATE TABLE IF NOT EXISTS style_feedback (
     rating     TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS client_dialogs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform     TEXT DEFAULT 'max',
+    client_id    TEXT,
+    client_name  TEXT,
+    message      TEXT,
+    bot_response TEXT,
+    escalated    INTEGER DEFAULT 0,
+    sent         INTEGER DEFAULT 0,
+    auto_send_at TEXT,
+    cancelled    INTEGER DEFAULT 0,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
