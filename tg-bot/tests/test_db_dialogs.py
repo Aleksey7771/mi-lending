@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from db.dialogs import save_dialog, get_pending_auto_send, mark_sent, cancel_auto_send
+from db.dialogs import save_dialog, get_pending_auto_send, mark_sent, cancel_auto_send, get_dialog
 
 
 async def test_save_dialog_returns_id(db):
@@ -37,3 +37,11 @@ async def test_cancel_auto_send_excludes_from_pending(db):
     await cancel_auto_send(db, dialog_id)
     rows = await get_pending_auto_send(db)
     assert rows == []
+
+
+async def test_get_dialog_returns_row(db):
+    past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    dialog_id = await save_dialog(db, "max", "c1", "Иван", "?", "Ответ", past)
+    row = await get_dialog(db, dialog_id)
+    assert row is not None
+    assert row["client_name"] == "Иван"
