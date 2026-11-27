@@ -4,9 +4,10 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from handlers import catalog, common
+from handlers import catalog, common, content
 from middleware.owner import OwnerOnlyMiddleware
 
 
@@ -18,13 +19,14 @@ async def main() -> None:
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp = Dispatcher()
+    dp = Dispatcher(storage=MemoryStorage())
 
     # Security: only ALLOWED_USER_ID can interact with this bot
     dp.message.middleware(OwnerOnlyMiddleware())
 
     dp.include_router(common.router)
     dp.include_router(catalog.router)
+    dp.include_router(content.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
