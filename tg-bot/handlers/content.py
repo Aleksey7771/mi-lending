@@ -16,6 +16,7 @@ from ai.generator import generate_post
 from ai.router import detect_intent
 from db.catalog import get_product
 from db.database import get_db
+from platforms import max_content, telegram_channel
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,39 @@ async def handle_text_message(message: Message, state: FSMContext) -> None:
         await message.answer(
             "Команда не распознана. Попробуйте: «напиши пост про горбушу»"
         )
+
+
+@router.callback_query(F.data == "publish_post")
+async def handle_publish_post(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    post_text = data.get("post_text", "")
+    product = data.get("product", {})
+    photo_file_id = product.get("photo_file_id") if product else None
+
+    bot = callback.bot
+    tg_ok = await telegram_channel.publish_post(bot, post_text, photo_file_id)
+    max_ok = await max_content.publish_post(post_text, photo_url=None)
+
+    await state.clear()
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    parts = []
+    if tg_ok:
+        parts.append("Telegram")
+    if max_ok:
+        parts.append("Max")
+
+    if parts:
+        channels = " + ".join(parts)
+        await callback.message.answer(
+            f"✅ Опубликовано ({channels}). Как вышло?\n"
+            "👍 Хорошо  |  ✏️ Слишком длинно"
+        )
+    else:
+        await callback.message.answer(
+            "⚠️ Не удалось опубликовать. Текст сохранён:\n\n" + post_text
+        )
+    await callback.answer()
 
 
 @router.callback_query(F.data == "cancel_post")
