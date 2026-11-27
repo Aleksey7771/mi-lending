@@ -7,8 +7,9 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from handlers import catalog, common, content, kp, price, style
+from handlers import catalog, common, content, dialog_notification, kp, price, style
 from middleware.owner import OwnerOnlyMiddleware
+from polling.max_dialog_loop import run_max_dialog_loop
 
 
 logging.basicConfig(level=logging.INFO)
@@ -29,8 +30,10 @@ async def main() -> None:
     dp.include_router(price.router)
     dp.include_router(kp.router)
     dp.include_router(style.router)
+    dp.include_router(dialog_notification.router)
     dp.include_router(common.router)  # catchall last
 
+    asyncio.create_task(run_max_dialog_loop(bot))
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
