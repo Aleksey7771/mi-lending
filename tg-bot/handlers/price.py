@@ -12,7 +12,7 @@ from aiogram.types import (
     InlineKeyboardButton,
 )
 
-from db.catalog import get_public_catalog, update_product
+from db.catalog import find_product_fuzzy, get_public_catalog, update_product
 from db.database import get_db
 from platforms import max_content, telegram_channel
 
@@ -122,13 +122,14 @@ async def handle_price_correction(message: Message, state: FSMContext) -> None:
     price_val = float(m.group(2).replace(",", "."))
 
     async with get_db() as db:
-        updated = await update_product(db, name_raw.capitalize(),
-                                       price_wholesale=price_val)
-        if not updated:
+        product = await find_product_fuzzy(db, name_raw)
+        if product is None:
             await message.answer(
-                f"Товар «{name_raw}» не найден в каталоге."
+                f"Товар «{name_raw}» не найден в каталоге. "
+                "Проверьте название командой /catalog."
             )
             return
+        await update_product(db, product["name"], price_wholesale=price_val)
         products = await get_public_catalog(db)
 
     await state.update_data(price_products=products)

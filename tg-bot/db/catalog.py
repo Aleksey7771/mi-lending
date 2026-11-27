@@ -118,3 +118,26 @@ async def set_stock(db: aiosqlite.Connection, name: str, in_stock: bool) -> bool
     )
     await db.commit()
     return cursor.rowcount > 0
+
+
+async def find_product_fuzzy(db: aiosqlite.Connection, name_input: str) -> dict | None:
+    """Поиск товара с учётом падежа: SQLite LOWER() не поддерживает кириллицу,
+    поэтому сравниваем на стороне Python. Сначала точное совпадение, затем
+    префиксный поиск (обрезаем 2 символа для русских падежных окончаний)."""
+    cursor = await db.execute("SELECT * FROM products")
+    rows = await cursor.fetchall()
+
+    name_lower = name_input.lower()
+
+    # Точное совпадение без учёта регистра
+    for row in rows:
+        if row["name"].lower() == name_lower:
+            return dict(row)
+
+    # Префиксный поиск: горбушу → горбуш
+    prefix = name_lower[: max(3, len(name_lower) - 2)]
+    for row in rows:
+        if row["name"].lower().startswith(prefix):
+            return dict(row)
+
+    return None

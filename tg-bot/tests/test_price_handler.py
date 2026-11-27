@@ -52,6 +52,33 @@ async def test_cmd_price_calls_update_data_not_update():
     state.update.assert_not_awaited()
 
 
+async def test_price_correction_accusative_finds_product(db):
+    """'горбушу на 480' должно найти товар 'Горбуша' (винит. падеж → номинатив)."""
+    from db.catalog import add_product, find_product_fuzzy
+    await add_product(db, name="Горбуша", category="рыба",
+                      price_retail=250.0, price_wholesale=185.0)
+    result = await find_product_fuzzy(db, "горбушу")
+    assert result is not None
+    assert result["name"] == "Горбуша"
+
+
+async def test_price_correction_exact_name_works(db):
+    """Точное совпадение (номинатив) тоже работает."""
+    from db.catalog import add_product, find_product_fuzzy
+    await add_product(db, name="Икра горбуши", category="икра",
+                      price_retail=3200.0, price_wholesale=2900.0)
+    result = await find_product_fuzzy(db, "Икра горбуши")
+    assert result is not None
+    assert result["name"] == "Икра горбуши"
+
+
+async def test_price_correction_missing_product_returns_none(db):
+    """Несуществующий товар возвращает None."""
+    from db.catalog import find_product_fuzzy
+    result = await find_product_fuzzy(db, "кальмар")
+    assert result is None
+
+
 def test_format_price_list_groups_by_category():
     products = [
         {"name": "Горбуша", "category": "рыба", "price_retail": 250.0,
