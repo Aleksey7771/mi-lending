@@ -31,6 +31,27 @@ def test_format_price_list_empty():
     assert "нет" in lower or result.strip() == "" or "пуст" in lower
 
 
+async def test_cmd_price_calls_update_data_not_update():
+    """state.update_data() is the correct aiogram 3 FSMContext method, not state.update()."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+    products = [
+        {"name": "Горбуша", "category": "рыба", "price_retail": 250.0,
+         "price_wholesale": 185.0, "price_vip": None, "unit": "кг",
+         "origin": "Камчатка", "in_stock": 1},
+    ]
+    msg = MagicMock()
+    msg.answer = AsyncMock()
+    state = AsyncMock()
+
+    with patch("handlers.price.get_public_catalog", new_callable=AsyncMock,
+               return_value=products):
+        from handlers.price import cmd_price
+        await cmd_price(msg, state=state)
+
+    state.update_data.assert_awaited()
+    state.update.assert_not_awaited()
+
+
 def test_format_price_list_groups_by_category():
     products = [
         {"name": "Горбуша", "category": "рыба", "price_retail": 250.0,

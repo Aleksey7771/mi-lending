@@ -89,7 +89,7 @@ async def handle_text_message(message: Message, state: FSMContext) -> None:
             await message.answer("Ошибка генерации поста. Попробуйте ещё раз.")
             return
 
-        await state.update({"post_text": post_text, "product": product})
+        await state.update_data(post_text=post_text, product=product)
         await state.set_state(ContentStates.waiting_approval)
 
         preview = f"<b>Превью поста:</b>\n\n{post_text}"
@@ -156,7 +156,7 @@ async def handle_rewrite(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Ошибка генерации. Попробуйте ещё раз.")
         return
 
-    await state.update({"post_text": post_text})
+    await state.update_data(post_text=post_text)
     preview = f"<b>Превью поста (новый вариант):</b>\n\n{post_text}"
     await callback.message.edit_text(preview, reply_markup=_preview_keyboard())
     await callback.answer()

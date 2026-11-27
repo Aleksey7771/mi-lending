@@ -45,3 +45,18 @@ async def test_other_intent_sends_fallback(mock_intent, message_factory):
     from handlers.content import handle_text_message
     await handle_text_message(msg, state=state)
     msg.answer.assert_awaited()
+
+
+@patch("handlers.content.detect_intent", new_callable=AsyncMock, return_value="POST")
+@patch("handlers.content.get_product", new_callable=AsyncMock, return_value=MOCK_PRODUCT)
+@patch("handlers.content.generate_post", new_callable=AsyncMock,
+       return_value="Горбуша б/г | 185₽/кг")
+async def test_handler_calls_update_data_not_update(mock_gen, mock_get, mock_intent,
+                                                    message_factory):
+    """state.update_data() is the correct aiogram 3 FSMContext method, not state.update()."""
+    msg = message_factory(text="напиши пост про горбушу")
+    state = AsyncMock()
+    from handlers.content import handle_text_message
+    await handle_text_message(msg, state=state)
+    state.update_data.assert_awaited()
+    state.update.assert_not_awaited()

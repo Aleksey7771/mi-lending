@@ -68,7 +68,7 @@ async def cmd_price(message: Message, state: FSMContext) -> None:
         products = await get_public_catalog(db)
 
     text = format_price_list(products)
-    await state.update({"price_products": products})
+    await state.update_data(price_products=products)
     await state.set_state(PriceStates.waiting_confirmation)
     await message.answer(text + "\n\nЦены актуальны? Публикуем?",
                          reply_markup=_confirm_keyboard())
@@ -131,7 +131,7 @@ async def handle_price_correction(message: Message, state: FSMContext) -> None:
             return
         products = await get_public_catalog(db)
 
-    await state.update({"price_products": products})
+    await state.update_data(price_products=products)
     await state.set_state(PriceStates.waiting_confirmation)
     text_updated = format_price_list(products)
     await message.answer(
