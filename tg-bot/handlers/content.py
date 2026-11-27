@@ -16,6 +16,7 @@ from ai.generator import generate_post
 from ai.router import detect_intent
 from db.catalog import get_product
 from db.database import get_db
+from db.style import get_style_profile
 from platforms import max_content, telegram_channel
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,9 @@ async def handle_text_message(message: Message, state: FSMContext) -> None:
             return
 
         try:
-            post_text = await generate_post(product, text, style_profile=None)
+            async with get_db() as style_db:
+                style = await get_style_profile(style_db)
+            post_text = await generate_post(product, text, style_profile=style)
         except Exception as e:
             logger.error("generate_post failed: %s", e)
             await message.answer("Ошибка генерации поста. Попробуйте ещё раз.")

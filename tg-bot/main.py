@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from handlers import catalog, common, content, kp, price
+from handlers import catalog, common, content, kp, price, style
 from middleware.owner import OwnerOnlyMiddleware
 
 
@@ -29,6 +29,7 @@ async def main() -> None:
     dp.include_router(content.router)
     dp.include_router(price.router)
     dp.include_router(kp.router)
+    dp.include_router(style.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
