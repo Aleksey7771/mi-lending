@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .meta { color: #555; font-size: 13px; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th { background: #2c5f8a; color: #fff; padding: 8px 10px; text-align: left; font-size: 13px; }
+  td { border: 1px solid #ddd; padding: 7px 10px; font-size: 13px; }
+  tr:nth-child(even) td { background: #f7f9fb; }
+  .footer { margin-top: 24px; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; }
+  .highlight { font-weight: bold; color: #2c5f8a; }
+</style>
+</head>
+<body>
+
+<h1>{{ company_name }}</h1>
+<div class="meta">
+  Коммерческое предложение &nbsp;|&nbsp; Дата: <strong>{{ date }}</strong>
+  &nbsp;|&nbsp; Получатель: <strong>{{ client_name }}</strong>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Наименование</th>
+      <th>Происхождение</th>
+      <th>Цена (опт)</th>
+      <th>Мин. партия</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ item.name }}</td>
+      <td>{{ item.get('origin', '—') }}</td>
+      <td class="highlight">{{ "{:,.0f}".format(item.price_wholesale) }} ₽/{{ item.get('unit', 'кг') }}</td>
+      <td>от {{ item.get('min_order_wholesale', 1) }} {{ item.get('unit', 'кг') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="footer">
+  <p><strong>Зоны доставки:</strong> {{ delivery_zones }}</p>
+  <p><strong>Контакт:</strong> {{ manager_contact }}</p>
+  <p><em>Цены актуальны на дату составления. По вопросам условий — обращайтесь к менеджеру.</em></p>
+</div>
+
+</body>
+</html>
