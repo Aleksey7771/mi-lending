@@ -2,7 +2,6 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from ai.router import detect_intent
 from db.catalog import (
     add_product,
     get_all_products,

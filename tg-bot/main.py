@@ -24,12 +24,12 @@ async def main() -> None:
     # Security: only ALLOWED_USER_ID can interact with this bot
     dp.message.middleware(OwnerOnlyMiddleware())
 
-    dp.include_router(common.router)
     dp.include_router(catalog.router)
     dp.include_router(content.router)
     dp.include_router(price.router)
     dp.include_router(kp.router)
     dp.include_router(style.router)
+    dp.include_router(common.router)  # catchall last
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

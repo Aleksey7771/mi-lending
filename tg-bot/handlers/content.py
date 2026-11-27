@@ -14,7 +14,7 @@ from aiogram.types import (
 
 from ai.generator import generate_post
 from ai.router import detect_intent
-from db.catalog import get_product
+from db.catalog import get_all_products, get_product
 from db.database import get_db
 from db.style import get_style_profile
 from platforms import max_content, telegram_channel
@@ -94,6 +94,38 @@ async def handle_text_message(message: Message, state: FSMContext) -> None:
 
         preview = f"<b>Превью поста:</b>\n\n{post_text}"
         await message.answer(preview, reply_markup=_preview_keyboard())
+
+    elif intent == "CATALOG_VIEW":
+        async with get_db() as db:
+            products = await get_all_products(db, in_stock_only=False)
+        if not products:
+            await message.answer("Каталог пуст. Добавьте товары командой /catalog")
+            return
+        lines = ["<b>Каталог товаров</b>\n"]
+        cur_cat = None
+        for p in products:
+            if p["category"] != cur_cat:
+                cur_cat = p["category"]
+                lines.append(f"\n<b>{cur_cat.upper()}</b>")
+            icon = "✅" if p["in_stock"] else "❌"
+            lines.append(f"{icon} {p['name']} — опт: {p['price_wholesale']} ₽")
+        await message.answer("\n".join(lines))
+
+    elif intent in ("CATALOG_ADD", "CATALOG_UPDATE"):
+        name = _extract_product_name(text)
+        if name:
+            async with get_db() as db:
+                product = await get_product(db, name)
+            if product is None:
+                await message.answer(
+                    f"Товар «{name}» не найден в каталоге. "
+                    "Проверьте название командой /catalog."
+                )
+                return
+        await message.answer(
+            "Управление каталогом — команда /catalog\n"
+            "Редактирование через кнопки в каталоге."
+        )
 
     else:
         await message.answer(

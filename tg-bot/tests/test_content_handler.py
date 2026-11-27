@@ -60,3 +60,31 @@ async def test_handler_calls_update_data_not_update(mock_gen, mock_get, mock_int
     await handle_text_message(msg, state=state)
     state.update_data.assert_awaited()
     state.update.assert_not_awaited()
+
+
+@patch("handlers.content.detect_intent", new_callable=AsyncMock, return_value="CATALOG_UPDATE")
+@patch("handlers.content.get_product", new_callable=AsyncMock, return_value=None)
+async def test_catalog_update_product_not_found(mock_get, mock_intent, message_factory):
+    """CATALOG_UPDATE intent when product not found → clear error message."""
+    msg = message_factory(text="обнови горбушу 450р")
+    state = AsyncMock()
+    from handlers.content import handle_text_message
+    await handle_text_message(msg, state=state)
+    msg.answer.assert_awaited()
+    call_text = str(msg.answer.call_args).lower()
+    assert "не найден" in call_text or "каталог" in call_text
+
+
+@patch("handlers.content.detect_intent", new_callable=AsyncMock, return_value="CATALOG_VIEW")
+@patch("handlers.content.get_all_products", new_callable=AsyncMock,
+       return_value=[{"name": "Горбуша", "price_wholesale": 185.0, "in_stock": 1,
+                      "category": "рыба", "price_retail": 250.0}])
+async def test_catalog_view_intent_shows_catalog(mock_all, mock_intent, message_factory):
+    """CATALOG_VIEW intent shows the catalog listing."""
+    msg = message_factory(text="покажи каталог")
+    state = AsyncMock()
+    from handlers.content import handle_text_message
+    await handle_text_message(msg, state=state)
+    msg.answer.assert_awaited()
+    call_text = str(msg.answer.call_args)
+    assert "Горбуша" in call_text
